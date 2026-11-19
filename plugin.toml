@@ -1,6 +1,6 @@
 schema = 1
 id = "agent-tabs"
 name = "Agent Tab Marks"
-version = "0.2.0"
-description = "Full agent tab icons (28 coding agents), automatic ACP tab title updates, and active tab title + count in the top bar when vertical sidebar tabs are enabled."
+version = "0.3.0"
+description = "Full agent tab icons (28 coding agents, crisp herdr-radar style), ACP tab session titles, and top-bar active tab icon + title + count in vertical sidebar mode."
 window = "window.luau"

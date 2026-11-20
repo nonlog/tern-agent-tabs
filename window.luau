@@ -387,7 +387,7 @@ html.tabs-v #tabbar .tb-sp::after {
 	)
 end
 
-local hide_finished_steps = true
+local hide_finished_steps = false
 local installed_finished_steps = false
 local function set_finished_steps(hidden: boolean)
 	if hidden == installed_finished_steps then return end

@@ -4,14 +4,11 @@
 -- 1. Agent tab icons: 28 coding agent SVG marks (herdr-radar set + droid) rendered crisply at
 --    full size (16px, transparent background, no dark card/mask) on both vertical sidebar and
 --    horizontal tab rows, without affecting ordinary shell tabs.
--- 2. ACP tab session titles: replaces raw program-path titles (e.g. pwsh.exe) on ACP/agent tabs
---    with "<Agent> · <session title>" (from ACP surface title or first user prompt, falling back
---    to "<Agent> · <folder>" for brand-new sessions) and refreshes chrome automatically.
+-- 2. ACP tab titles use the actual session name, with a folder fallback for unnamed chats.
 -- 3. Vertical-sidebar top bar: when vertical sidebar tabs are enabled (html.tabs-v), shows the
 --    active tab's agent icon, title, and current/total tab count centered in #tabbar .tb-sp.
 
 local POLL_MS = 1500
-local SESSION_TITLE_MAX_CHARS = 28
 
 type AgentSpec = {
 	display: string,
@@ -130,49 +127,9 @@ local function css_escape(s: string): string
 	return cleaned
 end
 
--- UTF-8 safe truncation by Unicode codepoints.
-local function utf8_truncate(s: string, max_chars: number): string
-	local count = 0
-	local byte_pos = 1
-	local len = #s
-	while byte_pos <= len do
-		local b = string.byte(s, byte_pos)
-		local char_len = 1
-		if b >= 240 then
-			char_len = 4
-		elseif b >= 224 then
-			char_len = 3
-		elseif b >= 192 then
-			char_len = 2
-		end
-		count += 1
-		if count > max_chars then
-			return string.sub(s, 1, byte_pos - 1) .. "\226\128\166"
-		end
-		byte_pos += char_len
-	end
-	return s
-end
-
--- Clean a raw user prompt / session title into a compact single-line tab label.
-local function clean_session_summary(raw: string): string?
-	local s = string.gsub(raw, "[\r\n\t]+", " ")
-	-- Strip leading Windows or Unix file paths (e.g. pasted clipboard images) and [Image #N] markers
-	while true do
-		local next_s = string.gsub(s, "^%s*[A-Za-z]:[/\\][^%s]+%s*", "")
-		next_s = string.gsub(next_s, "^%s*/[^%s]+%s*", "")
-		next_s = string.gsub(next_s, "^%s*%[Image #%d+%]%s*", "")
-		if next_s == s then
-			break
-		end
-		s = next_s
-	end
-	s = string.gsub(s, "%s+", " ")
-	s = string.match(s, "^%s*(.-)%s*$") or ""
-	if s == "" then
-		return nil
-	end
-	return utf8_truncate(s, SESSION_TITLE_MAX_CHARS)
+local function absolute_path(path: string): boolean
+	return string.sub(path, 1, 1) == "/" or string.sub(path, 1, 2) == "\\\\"
+		or string.match(path, "^%a:[/\\]") ~= nil
 end
 
 local function match_command(text: string?): string?
@@ -279,55 +236,27 @@ local function detect_pane_agent(pane: PaneInfo, acp_agents: { [number]: string 
 	return match_title(pane.title)
 end
 
--- Extract a readable session title for an ACP/agent pane from its TSP surface:
--- 1) surface.title if it carries a real session title (not just the bare agent name)
--- 2) first omp.user message text in surface.main
-local function extract_acp_session_title(cx: WindowCx, pane_id: number, agent_key: string): string?
-	local ok, tree = pcall(function()
-		return cx.session:surface(pane_id, { depth = 2, nodes = 16, max_chars = 600 })
-	end)
-	if not ok or type(tree) ~= "table" then
+local function acp_session_title(pane: PaneInfo?, agent_key: string): string?
+	local raw = if pane and pane.title then string.match(pane.title, "^%s*(.-)%s*$") else nil
+	if not raw or raw == "" or absolute_path(raw) then
 		return nil
 	end
-
-	local spec = AGENTS[agent_key]
-	local display_lower = string.lower(if spec then spec.display else agent_key)
-	local sf = (tree :: any).surface
-	if type(sf) == "table" and type(sf.title) == "string" and sf.title ~= "" then
-		local sf_lower = string.lower(sf.title)
-		if sf_lower ~= display_lower and sf_lower ~= agent_key and not from_program(sf.title) then
-			local cleaned = clean_session_summary(sf.title)
-			if cleaned then
-				return cleaned
-			end
-		end
+	local lower = string.lower(raw)
+	if lower == agent_key or lower == string.lower(AGENTS[agent_key].display) or GENERIC_SHELLS[strip_exe(lower)] then
+		return nil
 	end
-
-	local main_node = (tree :: any).main
-	if type(main_node) == "table" and type(main_node.c) == "table" then
-		for _, child in ipairs(main_node.c) do
-			if type(child) == "table" and type(child.p) == "table" and child.p.role == "omp.user" then
-				if type(child.c) == "table" then
-					for _, sub in ipairs(child.c) do
-						if type(sub) == "table" and type(sub.p) == "table" and type(sub.p.text) == "string" and sub.p.text ~= "" then
-							local cleaned = clean_session_summary(sub.p.text)
-							if cleaned then
-								return cleaned
-							end
-						end
-					end
-				end
-			end
-		end
+	if pane and pane.program and lower == string.lower(pane.program) then
+		return nil
 	end
-	return nil
+	return raw
 end
 
 local function format_agent_title(agent_key: string, session_title: string?, cwd: string?): string
 	local spec = AGENTS[agent_key]
 	local label = if spec then spec.display else agent_key
 	if session_title and session_title ~= "" then
-		return label .. " \194\183 " .. session_title
+		local prefix = label .. " \194\183 "
+		return if string.sub(session_title, 1, #prefix) == prefix then session_title else prefix .. session_title
 	end
 	local folder = if cwd and cwd ~= "" then basename(cwd) else nil
 	if folder and folder ~= "" then
@@ -338,7 +267,6 @@ end
 
 -- Shared state read by tern.chrome.tab_title formatter.
 local agent_of_pane: { [number]: string } = {}
-local session_title_of_pane: { [number]: string } = {}
 local title_of_tab: { [number]: string } = {}
 local last_title_sig = ""
 local installed_icon_css = ""
@@ -357,7 +285,7 @@ tern.chrome.tab_title(function(tab: TabInfo): string?
 	end
 	local agent = agent_of_pane[tab.pane]
 	if agent then
-		return format_agent_title(agent, session_title_of_pane[tab.pane], tab.cwd)
+		return format_agent_title(agent, nil, tab.cwd)
 	end
 	return nil
 end)
@@ -459,15 +387,34 @@ html.tabs-v #tabbar .tb-sp::after {
 	)
 end
 
+local hide_finished_steps = true
+local installed_finished_steps = false
+local function set_finished_steps(hidden: boolean)
+	if hidden == installed_finished_steps then return end
+	tern.css("finished-steps", if hidden then [[
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool,
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.thinking"] {
+	display: none !important;
+}
+]] else "")
+	installed_finished_steps = hidden
+end
+
 local function refresh(cx: WindowCx)
 	-- 1. Collect ACP / registered agents from cx.agents:list().
+	local focused_pane = cx.session:focused()
+	local focused_pi_idle = false
 	local acp_agents: { [number]: string } = {}
 	for _, info in ipairs(cx.agents:list()) do
 		local key = match_command(info.command)
 		if key then
 			acp_agents[info.pane] = key
 		end
+		if info.pane == focused_pane and key == "pi" then
+			focused_pi_idle = info.state == "idle"
+		end
 	end
+	set_finished_steps(hide_finished_steps and focused_pi_idle)
 
 	-- 2. Detect agent per pane across all panes (ACP + shell-hosted + direct agent binaries).
 	local next_agent_of_pane: { [number]: string } = {}
@@ -486,15 +433,7 @@ local function refresh(cx: WindowCx)
 	end
 	agent_of_pane = next_agent_of_pane
 
-	-- Prune stale cached ACP session titles for closed panes.
-	for pane_id in pairs(session_title_of_pane) do
-		if not next_agent_of_pane[pane_id] then
-			session_title_of_pane[pane_id] = nil
-		end
-	end
-
 	-- 3. Identify active tab & current session.
-	local focused_pane = cx.session:focused()
 	local active_tab_id = if focused_pane then cx.session:tab_of(focused_pane) else nil
 	local tabs = cx.session:tabs()
 	local current_session: number? = nil
@@ -550,17 +489,14 @@ local function refresh(cx: WindowCx)
 			agent_of_tab[tab.id] = agent
 		end
 
-		if agent and agent_pane and (not tab.name or tab.name == "") and from_program(tab.title) then
-			local st = session_title_of_pane[agent_pane]
-			if not st and acp_agents[agent_pane] then
-				st = extract_acp_session_title(cx, agent_pane, agent)
-				if st then
-					session_title_of_pane[agent_pane] = st
-				end
+		if agent and agent_pane and (not tab.name or tab.name == "") then
+			local is_acp = acp_agents[agent_pane] ~= nil
+			local name = if is_acp then acp_session_title(pane_by_id[agent_pane], agent) else nil
+			if is_acp or from_program(tab.title) then
+				local formatted = format_agent_title(agent, name, tab.cwd)
+				next_title_of_tab[tab.id] = formatted
+				table.insert(title_sig_parts, tostring(tab.id) .. "=" .. formatted)
 			end
-			local formatted = format_agent_title(agent, st, tab.cwd)
-			next_title_of_tab[tab.id] = formatted
-			table.insert(title_sig_parts, tostring(tab.id) .. "=" .. formatted)
 		end
 
 		if tab.session == current_session then
@@ -611,6 +547,34 @@ local function refresh(cx: WindowCx)
 	end
 end
 
+tern.command({
+	id = "pi-in-folder",
+	title = "Pi ACP: New Chat in Folder",
+	icon = "folder",
+	run = function(cx: WindowCx)
+		local focused = cx.session:focused()
+		local pane = if focused then cx.session:pane(focused) else nil
+		cx:prompt({ value = if pane then pane.cwd else "", placeholder = "Folder for the new Pi chat", action = "open new chat" })
+			:next(function(input, _, window)
+				if not input or not window then return end
+				local path = string.match(input, "^%s*(.-)%s*$") or ""
+				if not absolute_path(path) then
+					window:toast("warn", "Enter an absolute folder path")
+					return
+				end
+				tern.process.run({ "node", "-e", "if (!require('node:fs').statSync(process.argv[1], { throwIfNoEntry: false })?.isDirectory()) process.exitCode = 1", "--", path },
+					{ timeout_ms = 3000 }, function(result, fresh)
+						if not fresh then return end
+						if result.status ~= 0 then
+							fresh:toast("warn", "Folder not found or unavailable", path)
+							return
+						end
+						fresh.layout:new_tab({ cwd = path, command = "tern acp pi" })
+					end)
+			end)
+	end,
+})
+
 local last_error: string? = nil
 
 local function safe_refresh(cx: WindowCx?)
@@ -624,6 +588,16 @@ local function safe_refresh(cx: WindowCx?)
 	end
 end
 
+tern.command({
+	id = "toggle-chat-steps",
+	title = "Pi ACP: Toggle Finished Steps",
+	run = function(cx: WindowCx)
+		hide_finished_steps = not hide_finished_steps
+		safe_refresh(cx)
+		cx:toast("info", if hide_finished_steps then "Finished chat steps hidden automatically" else "Finished chat steps shown")
+	end,
+})
+
 local EVENTS = {
 	"window_start",
 	"focus",
@@ -634,6 +608,7 @@ local EVENTS = {
 	"title",
 	"cwd",
 	"agent_state",
+	"agent_finished",
 }
 for _, ev_name in ipairs(EVENTS) do
 	tern.on(ev_name, function(a: any, b: any)

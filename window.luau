@@ -393,8 +393,15 @@ local function set_finished_steps(hidden: boolean)
 	if hidden == installed_finished_steps then return end
 	tern.css("finished-steps", if hidden then [[
 .tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool,
-.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > [data-role="omp.thinking"],
-.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(~ :is(.sf-tool, [data-role="omp.thinking"])),
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > [data-role="omp.thinking"] {
+	display: none !important;
+}
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(+ .sf-tool) {
+	display: none !important;
+}
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(+ [data-role="omp.thinking"]) {
+	display: none !important;
+}
 .tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"]:has(+ [data-role="omp.assistant"]) {
 	display: none !important;
 }

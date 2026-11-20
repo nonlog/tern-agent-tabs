@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { bashTranscript } from './bash-transcript.mjs';
+import { toolTitles } from './tool-titles.mjs';
 
 function removeProvider(option, id) {
   const slash = typeof id === 'string' ? id.indexOf('/') : -1;
@@ -78,6 +79,7 @@ function bridge(adapter, args) {
   let usesConfigMode = false;
   const sessionMap = join(homedir(), '.pi', 'pi-acp', 'session-map.json');
   let savedCommands;
+  const titles = toolTitles();
   const adaptBash = bashTranscript(async (sessionId, toolCallId) => {
     if (![...requests.values()].some((r) => r.method === 'session/load' && r.sessionId === sessionId)) return;
     savedCommands ??= readSavedBashCommands(sessionMap, sessionId).catch(() => new Map());
@@ -145,11 +147,12 @@ function bridge(adapter, args) {
       if (adjusted) adaptForTern(frame);
       const update = frame?.params?.update;
       const bashAdjusted = update?.toolCallId && await adaptBash(frame.params.sessionId, update);
-      if (!process.stdout.write((adjusted || bashAdjusted ? JSON.stringify(frame) : line) + '\n')) await once(process.stdout, 'drain');
+      const titleAdjusted = update?.toolCallId && titles.apply(frame.params.sessionId, update);
+      if (!process.stdout.write((adjusted || bashAdjusted || titleAdjusted ? JSON.stringify(frame) : line) + '\n')) await once(process.stdout, 'drain');
       const request = requests.get(frame?.id);
       if (!request || frame.method) continue;
       requests.delete(frame.id);
-      if (request.method === 'session/load') savedCommands = undefined;
+      if (request.method === 'session/load') { savedCommands = undefined; titles.resetSession(frame.result?.sessionId ?? request.sessionId); }
       const sessionId = frame.result?.sessionId ?? request.sessionId;
       if (!frame.result || typeof sessionId !== 'string') continue;
       const reopening = request.method !== 'session/prompt';

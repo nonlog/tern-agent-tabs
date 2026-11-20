@@ -13,6 +13,65 @@
 	display: none !important;
 }
 
+/* Timeline mode: visually demote process steps & intermediate progress notes into a quiet left-bordered log, keeping final answer crisp */
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool {
+	border-left: 2px solid var(--l2) !important;
+	padding-left: 10px !important;
+	margin: 1px 0 !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool.collapsed > .sf-tool-head {
+	min-height: 22px !important;
+	padding-top: 1px !important;
+	padding-bottom: 1px !important;
+	font-size: 12.5px !important;
+	color: var(--t3) !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > [data-role="omp.thinking"] {
+	border-left: 2px solid var(--l2) !important;
+	padding-left: 10px !important;
+	margin: 1px 0 !important;
+	font-size: 12px !important;
+	color: var(--t3) !important;
+	opacity: 0.85 !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool + .sf-md,
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > [data-role="omp.thinking"] + .sf-md {
+	margin-top: 10px !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(+ .sf-tool) {
+	font-size: 12.5px !important;
+	line-height: 1.45 !important;
+	color: var(--t3) !important;
+	border-left: 2px solid var(--l2) !important;
+	padding-left: 10px !important;
+	margin: 2px 0 !important;
+	opacity: 0.85 !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(+ [data-role="omp.thinking"]) {
+	font-size: 12.5px !important;
+	line-height: 1.45 !important;
+	color: var(--t3) !important;
+	border-left: 2px solid var(--l2) !important;
+	padding-left: 10px !important;
+	margin: 2px 0 !important;
+	opacity: 0.85 !important;
+}
+
+.sf-main[data-surface="omp.session"] [data-role="omp.assistant"]:has(+ [data-role="omp.assistant"]) > .sf-md {
+	font-size: 12.5px !important;
+	line-height: 1.45 !important;
+	color: var(--t3) !important;
+	border-left: 2px solid var(--l2) !important;
+	padding-left: 10px !important;
+	margin: 2px 0 !important;
+	opacity: 0.85 !important;
+}
+
 /* Tab and mobile header agent icons (syncs to remote/mobile clients where window.luau does not run) */
 :is(.tn-dk-c, .tn-face):is(
 	[data-program="agent"],

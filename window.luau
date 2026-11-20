@@ -393,7 +393,9 @@ local function set_finished_steps(hidden: boolean)
 	if hidden == installed_finished_steps then return end
 	tern.css("finished-steps", if hidden then [[
 .tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-tool,
-.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.thinking"] {
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > [data-role="omp.thinking"],
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"] > .sf-md:has(~ :is(.sf-tool, [data-role="omp.thinking"])),
+.tn-pane.on .sf-main[data-surface="omp.session"] [data-role="omp.assistant"]:has(+ [data-role="omp.assistant"]) {
 	display: none !important;
 }
 ]] else "")
@@ -746,15 +748,52 @@ local function safe_refresh(cx: WindowCx?)
 	end
 end
 
+local function toggle_finished_steps(cx: WindowCx)
+	hide_finished_steps = not hide_finished_steps
+	safe_refresh(cx)
+	tern.chrome.refresh()
+	cx:toast("info", if hide_finished_steps then "Finished chat steps hidden automatically" else "Finished chat steps shown")
+end
+
 tern.command({
 	id = "toggle-chat-steps",
 	title = "Pi ACP: Toggle Finished Steps",
-	run = function(cx: WindowCx)
-		hide_finished_steps = not hide_finished_steps
-		safe_refresh(cx)
-		cx:toast("info", if hide_finished_steps then "Finished chat steps hidden automatically" else "Finished chat steps shown")
+	icon = "list",
+	run = toggle_finished_steps,
+})
+
+tern.chrome.widget("pi-steps", {
+	name = "Pi Steps",
+	icon = "list",
+	render = function(pane: StatusPaneInfo?)
+		if not pane or agent_of_pane[pane.pane] ~= "pi" then
+			return nil
+		end
+		local hidden = hide_finished_steps
+		return {
+			text = if hidden then "Steps hidden" else "Steps shown",
+			tone = if hidden then "muted" else "accent",
+			title = "Toggle Pi ACP finished steps (thinking, tools, progress notes)",
+			card = {
+				{
+					id = "toggle",
+					label = if hidden then "Process steps are hidden after reply" else "All process steps are visible",
+					actions = {
+						{ act = "toggle", label = if hidden then "Show steps" else "Hide steps" },
+					},
+				},
+			},
+		}
 	end,
 })
+
+tern.on("widget_action", function(ev: WidgetActionEvent, cx: WindowCx)
+	if ev.widget == "pi-steps" and ev.act == "toggle" then
+		toggle_finished_steps(cx)
+		return true
+	end
+	return false
+end)
 
 local EVENTS = {
 	"window_start",

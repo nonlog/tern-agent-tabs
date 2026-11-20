@@ -400,12 +400,48 @@ local function set_finished_steps(hidden: boolean)
 	installed_finished_steps = hidden
 end
 
+local WORKSPACE_ROOT = "D:\\Workspace"
+local unseen_done: { [number]: boolean } = {}
+local installed_status_css = ""
+
+local STATUS_PRIORITY: { [string]: number } = {
+	done = 1,
+	working = 2,
+	waiting = 3,
+}
+
+local STATUS_KEYFRAMES = [[
+@keyframes atStatusPulse {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.45; transform: scale(0.82); }
+}
+]]
+
+local function build_status_rule(pos: number, status: string): string
+	local v = string.format(V_ROW, pos)
+	local h = string.format(H_ROW, pos)
+	local color = if status == "waiting" then "#f59e0b" elseif status == "working" then "#38bdf8" else "#22c55e"
+	local anim = if status == "done" then "none" else "atStatusPulse 1.6s ease-in-out infinite"
+	return string.format(
+		'%s .lbl::before, %s .lbl::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%%; margin-right: 6px; vertical-align: middle; background: %s; animation: %s; }',
+		v,
+		h,
+		color,
+		anim
+	)
+end
+
 local function refresh(cx: WindowCx)
 	-- 1. Collect ACP / registered agents from cx.agents:list().
 	local focused_pane = cx.session:focused()
 	local focused_pi_idle = false
 	local acp_agents: { [number]: string } = {}
+	local agent_state_of_pane: { [number]: string } = {}
 	for _, info in ipairs(cx.agents:list()) do
+		agent_state_of_pane[info.pane] = info.state
+		if info.state == "working" or info.state == "waiting_input" then
+			unseen_done[info.pane] = nil
+		end
 		local key = match_command(info.command)
 		if key then
 			acp_agents[info.pane] = key
@@ -413,6 +449,9 @@ local function refresh(cx: WindowCx)
 		if info.pane == focused_pane and key == "pi" then
 			focused_pi_idle = info.state == "idle"
 		end
+	end
+	if focused_pane then
+		unseen_done[focused_pane] = nil
 	end
 	set_finished_steps(hide_finished_steps and focused_pi_idle)
 
@@ -468,7 +507,14 @@ local function refresh(cx: WindowCx)
 	local next_title_of_tab: { [number]: string } = {}
 	local agent_of_tab: { [number]: string } = {}
 	local title_sig_parts: { string } = {}
+	for pane_id in pairs(unseen_done) do
+		if not pane_by_id[pane_id] then
+			unseen_done[pane_id] = nil
+		end
+	end
+
 	local icon_rules: { string } = {}
+	local status_rules: { string } = {}
 	local session_tab_count = 0
 
 	for _, tab in ipairs(tabs) do
@@ -507,6 +553,40 @@ local function refresh(cx: WindowCx)
 					table.insert(icon_rules, rule)
 				end
 			end
+
+			local tab_status: string? = nil
+			local best_prio = 0
+			local function consider_pane(pid: number?)
+				if not pid then return end
+				if tab.id == active_tab_id then
+					unseen_done[pid] = nil
+				end
+				local st = agent_state_of_pane[pid]
+				local mapped: string? = nil
+				if st == "waiting_input" then
+					mapped = "waiting"
+				elseif st == "working" then
+					mapped = "working"
+				elseif unseen_done[pid] and tab.id ~= active_tab_id then
+					mapped = "done"
+				end
+				if mapped then
+					local prio = STATUS_PRIORITY[mapped] or 0
+					if prio > best_prio then
+						best_prio = prio
+						tab_status = mapped
+					end
+				end
+			end
+			consider_pane(tab.pane)
+			for pane_id, p in pairs(pane_by_id) do
+				if p.tab == tab.id and pane_id ~= tab.pane then
+					consider_pane(pane_id)
+				end
+			end
+			if tab_status then
+				table.insert(status_rules, build_status_rule(tab.position, tab_status))
+			end
 		end
 	end
 
@@ -522,6 +602,12 @@ local function refresh(cx: WindowCx)
 	if icon_css ~= installed_icon_css then
 		tern.css("icons", icon_css)
 		installed_icon_css = icon_css
+	end
+
+	local status_css = if #status_rules > 0 then (STATUS_KEYFRAMES .. "\n" .. table.concat(status_rules, "\n")) else ""
+	if status_css ~= installed_status_css then
+		tern.css("status", status_css)
+		installed_status_css = status_css
 	end
 
 	-- 5. Compute top bar CSS for vertical sidebar mode (html.tabs-v).
@@ -547,6 +633,33 @@ local function refresh(cx: WindowCx)
 	end
 end
 
+local function prompt_custom_pi_folder(cx: WindowCx, default_cwd: string)
+	cx:prompt({ value = default_cwd, placeholder = "Folder for the new Pi chat", action = "open new chat" })
+		:next(function(input, _, window)
+			if not input or not window then return end
+			local path = string.match(input, "^%s*(.-)%s*$") or ""
+			if not absolute_path(path) then
+				window:toast("warn", "Enter an absolute folder path")
+				return
+			end
+			tern.process.run({ "node", "-e", "if (!require('node:fs').statSync(process.argv[1], { throwIfNoEntry: false })?.isDirectory()) process.exitCode = 1", "--", path },
+				{ timeout_ms = 3000 }, function(result, fresh)
+					if not fresh then return end
+					if result.status ~= 0 then
+						fresh:toast("warn", "Folder not found or unavailable", path)
+						return
+					end
+					fresh.layout:new_tab({ cwd = path, command = "tern acp pi" })
+				end)
+		end)
+end
+
+local function normalize_win_path(path: string): string
+	local normalized = string.gsub(path, "/", "\\")
+	normalized = string.gsub(normalized, "\\+$", "")
+	return normalized
+end
+
 tern.command({
 	id = "pi-in-folder",
 	title = "Pi ACP: New Chat in Folder",
@@ -554,24 +667,69 @@ tern.command({
 	run = function(cx: WindowCx)
 		local focused = cx.session:focused()
 		local pane = if focused then cx.session:pane(focused) else nil
-		cx:prompt({ value = if pane then pane.cwd else "", placeholder = "Folder for the new Pi chat", action = "open new chat" })
-			:next(function(input, _, window)
-				if not input or not window then return end
-				local path = string.match(input, "^%s*(.-)%s*$") or ""
-				if not absolute_path(path) then
-					window:toast("warn", "Enter an absolute folder path")
+		local current_cwd = if pane and pane.cwd and pane.cwd ~= "" then normalize_win_path(pane.cwd) else ""
+		local list_script = "const fs=require('node:fs');const root=process.argv[1];let dirs=[];try{dirs=fs.readdirSync(root,{withFileTypes:true}).filter(d=>d.isDirectory()&&!d.name.startsWith('.')).map(d=>d.name).sort((a,b)=>{if(a==='General')return -1;if(b==='General')return 1;return a.localeCompare(b,undefined,{sensitivity:'base'});});}catch{}process.stdout.write(JSON.stringify(dirs));"
+		tern.process.run({ "node", "-e", list_script, "--", WORKSPACE_ROOT }, { timeout_ms = 3000 }, function(result, fresh)
+			if not fresh then return end
+			local items: { PickItem } = {}
+			local seen: { [string]: boolean } = {}
+			if current_cwd ~= "" and absolute_path(current_cwd) then
+				local key = string.lower(current_cwd)
+				seen[key] = true
+				table.insert(items, {
+					label = basename(current_cwd),
+					detail = current_cwd,
+					group = "Current",
+					icon = "folder-open",
+					current = true,
+					path = current_cwd,
+				})
+			end
+			if result.status == 0 and result.stdout and result.stdout ~= "" then
+				local ok, decoded = pcall(tern.json.decode, result.stdout)
+				if ok and type(decoded) == "table" then
+					for _, name in ipairs(decoded) do
+						if type(name) == "string" and name ~= "" then
+							local full = WORKSPACE_ROOT .. "\\" .. name
+							local key = string.lower(full)
+							if not seen[key] then
+								seen[key] = true
+								table.insert(items, {
+									label = name,
+									detail = full,
+									group = WORKSPACE_ROOT,
+									icon = "folder",
+									path = full,
+								})
+							end
+						end
+					end
+				end
+			end
+			table.insert(items, {
+				label = "Custom folder path...",
+				detail = "Enter any absolute folder path",
+				group = "Other",
+				icon = "folder-plus",
+				custom = true,
+			})
+			fresh:pick({
+				placeholder = "Pick a folder for new Pi chat...",
+				icon = "folder",
+				action = "open Pi chat",
+				items = items,
+			}):next(function(chosen, _, win)
+				if not chosen or not win then return end
+				if chosen.custom then
+					prompt_custom_pi_folder(win, current_cwd)
 					return
 				end
-				tern.process.run({ "node", "-e", "if (!require('node:fs').statSync(process.argv[1], { throwIfNoEntry: false })?.isDirectory()) process.exitCode = 1", "--", path },
-					{ timeout_ms = 3000 }, function(result, fresh)
-						if not fresh then return end
-						if result.status ~= 0 then
-							fresh:toast("warn", "Folder not found or unavailable", path)
-							return
-						end
-						fresh.layout:new_tab({ cwd = path, command = "tern acp pi" })
-					end)
+				local target = chosen.path
+				if type(target) == "string" and target ~= "" then
+					win.layout:new_tab({ cwd = target, command = "tern acp pi" })
+				end
 			end)
+		end)
 	end,
 })
 
@@ -613,6 +771,18 @@ local EVENTS = {
 for _, ev_name in ipairs(EVENTS) do
 	tern.on(ev_name, function(a: any, b: any)
 		local cx: WindowCx? = if ev_name == "window_start" then a else b
+		if ev_name == "agent_finished" and type(a) == "table" and type(a.pane) == "number" and a.result == "done" and cx then
+			local focused = cx.session:focused()
+			if focused ~= a.pane then
+				unseen_done[a.pane] = true
+			end
+		elseif ev_name == "agent_state" and type(a) == "table" and type(a.pane) == "number" then
+			if a.new == "working" or a.new == "waiting_input" then
+				unseen_done[a.pane] = nil
+			end
+		elseif ev_name == "focus" and type(a) == "table" and type(a.pane) == "number" then
+			unseen_done[a.pane] = nil
+		end
 		safe_refresh(cx)
 	end)
 end

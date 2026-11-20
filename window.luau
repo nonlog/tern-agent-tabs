@@ -414,7 +414,7 @@ local unseen_done: { [number]: boolean } = {}
 local installed_status_css = ""
 
 local STATUS_PRIORITY: { [string]: number } = {
-	done = 1,
+	unread = 1,
 	working = 2,
 	waiting = 3,
 }
@@ -429,8 +429,8 @@ local STATUS_KEYFRAMES = [[
 local function build_status_rule(pos: number, status: string): string
 	local v = string.format(V_ROW, pos)
 	local h = string.format(H_ROW, pos)
-	local color = if status == "waiting" then "#f59e0b" elseif status == "working" then "#38bdf8" else "#22c55e"
-	local anim = if status == "done" then "none" else "atStatusPulse 1.6s ease-in-out infinite"
+	local color = if status == "waiting" then "#f59e0b" elseif status == "working" then "#38bdf8" else "#a78bfa"
+	local anim = if status == "unread" then "none" else "atStatusPulse 1.6s ease-in-out infinite"
 	return string.format(
 		'%s .lbl::before, %s .lbl::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%%; margin-right: 6px; vertical-align: middle; background: %s; animation: %s; }',
 		v,
@@ -440,12 +440,33 @@ local function build_status_rule(pos: number, status: string): string
 	)
 end
 
+local function build_agents_widget_rules(agent_keys: { string }): { string }
+	local rules: { string } = {}
+	for i, key in ipairs(agent_keys) do
+		local url = icon_data_url(key)
+		if url then
+			local sel = string.format('.wg[data-widget="agents"] .wg-agents-tiles > .wg-agents-tile:nth-of-type(%d)', i)
+			table.insert(rules, string.format(
+				'%s { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }
+%s .wg-agents-art { background-image: url("%s") !important; background-size: 14px 14px !important; background-repeat: no-repeat !important; background-position: center !important; }
+%s .wg-agents-art > svg { opacity: 0 !important; }',
+				sel,
+				sel,
+				url,
+				sel
+			))
+		end
+	end
+	return rules
+end
+
 local function refresh(cx: WindowCx)
 	-- 1. Collect ACP / registered agents from cx.agents:list().
 	local focused_pane = cx.session:focused()
 	local focused_pi_idle = false
 	local acp_agents: { [number]: string } = {}
 	local agent_state_of_pane: { [number]: string } = {}
+	local ordered_agent_keys: { string } = {}
 	for _, info in ipairs(cx.agents:list()) do
 		agent_state_of_pane[info.pane] = info.state
 		if info.state == "working" or info.state == "waiting_input" then
@@ -454,6 +475,9 @@ local function refresh(cx: WindowCx)
 		local key = match_command(info.command)
 		if key then
 			acp_agents[info.pane] = key
+			table.insert(ordered_agent_keys, key)
+		else
+			table.insert(ordered_agent_keys, "")
 		end
 		if info.pane == focused_pane and key == "pi" then
 			focused_pi_idle = info.state == "idle"
@@ -577,7 +601,7 @@ local function refresh(cx: WindowCx)
 				elseif st == "working" then
 					mapped = "working"
 				elseif unseen_done[pid] and tab.id ~= active_tab_id then
-					mapped = "done"
+					mapped = "unread"
 				end
 				if mapped then
 					local prio = STATUS_PRIORITY[mapped] or 0
@@ -607,6 +631,9 @@ local function refresh(cx: WindowCx)
 		tern.chrome.refresh()
 	end
 
+	for _, r in ipairs(build_agents_widget_rules(ordered_agent_keys)) do
+		table.insert(icon_rules, r)
+	end
 	local icon_css = table.concat(icon_rules, "\n")
 	if icon_css ~= installed_icon_css then
 		tern.css("icons", icon_css)
@@ -778,15 +805,16 @@ tern.chrome.widget("pi-steps", {
 		end
 		local hidden = hide_finished_steps
 		return {
-			text = if hidden then "Steps hidden" else "Steps shown",
+			text = "",
 			tone = if hidden then "muted" else "accent",
-			title = "Toggle Pi ACP finished steps (thinking, tools, progress notes)",
+			title = if hidden then "Show Pi finished steps" else "Hide Pi finished steps",
+			command = "plugin.agent-tabs.toggle-chat-steps",
 			card = {
 				{
-					id = "toggle",
-					label = if hidden then "Process steps are hidden after reply" else "All process steps are visible",
+					id = "steps",
+					text = if hidden then "Process steps hidden after reply" else "All process steps visible",
 					actions = {
-						{ act = "toggle", label = if hidden then "Show steps" else "Hide steps" },
+						{ id = "toggle", label = if hidden then "Show steps" else "Hide steps" },
 					},
 				},
 			},

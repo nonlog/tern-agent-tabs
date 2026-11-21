@@ -446,15 +446,9 @@ local function build_agents_widget_rules(agent_keys: { string }): { string }
 		local url = icon_data_url(key)
 		if url then
 			local sel = string.format('.wg[data-widget="agents"] .wg-agents-tiles > .wg-agents-tile:nth-of-type(%d)', i)
-			table.insert(rules, string.format(
-				'%s { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }
-%s .wg-agents-art { background-image: url("%s") !important; background-size: 14px 14px !important; background-repeat: no-repeat !important; background-position: center !important; }
-%s .wg-agents-art > svg { opacity: 0 !important; }',
-				sel,
-				sel,
-				url,
-				sel
-			))
+			table.insert(rules, string.format('%s { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }', sel))
+			table.insert(rules, string.format('%s .wg-agents-art { background-image: url("%s") !important; background-size: 14px 14px !important; background-repeat: no-repeat !important; background-position: center !important; }', sel, url))
+			table.insert(rules, string.format('%s .wg-agents-art > svg { opacity: 0 !important; }', sel))
 		end
 	end
 	return rules

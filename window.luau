@@ -49,6 +49,10 @@ local AGENTS: { [string]: AgentSpec } = {
 
 local ALIASES: { [string]: string } = {
 	["claude-code"] = "claude",
+	["tclaude"] = "claude",
+	["tcodex"] = "codex",
+	["tpi"] = "pi",
+	["tdroid"] = "droid",
 	["claude-agent-acp"] = "claude",
 	["pi-acp"] = "pi",
 	["oh-my-pi"] = "omp",

@@ -22,7 +22,7 @@ local AGENTS: { [string]: AgentSpec } = {
 	opencode = { display = "OpenCode" },
 	omp = { display = "Oh My Pi" },
 	pi = { display = "Pi" },
-	droid = { display = "Droid", color = "#ef6f2e" },
+	droid = { display = "Droid" },
 	cline = { display = "Cline", color = "#7c91a3" },
 	mastracode = { display = "Mastra" },
 	kimi = { display = "Kimi", color = "#1783ff" },

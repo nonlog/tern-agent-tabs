@@ -325,11 +325,26 @@ local function build_icon_rule(position: number, agent_key: string): string
 	}, "\n")
 end
 
+local function normalize_agent_title(title: string): string
+	local trimmed = string.match(title, "^%s*(.-)%s*$") or title
+	local lower = string.lower(trimmed)
+	if lower == "claude" or lower == "tclaude" or lower == "claude code" then
+		return "Claude Code"
+	elseif lower == "pi" or lower == "tpi" then
+		return "Pi"
+	elseif lower == "droid" or lower == "tdroid" then
+		return "Droid"
+	elseif lower == "codex" or lower == "tcodex" then
+		return "Codex"
+	end
+	return title
+end
+
 local function build_topbar_css(title: string, active_pos: number, total_tabs: number, agent_key: string?): string
 	if total_tabs <= 0 then
 		return ""
 	end
-	local safe_title = css_escape(title)
+	local safe_title = css_escape(normalize_agent_title(title))
 	local count_text = string.format("%d / %d", active_pos, total_tabs)
 	local icon_css = ""
 	if agent_key then

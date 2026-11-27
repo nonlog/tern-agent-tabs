@@ -1,7 +1,7 @@
 schema = 1
 id = "agent-tabs"
 name = "Agent Tab Marks"
-version = "0.6.8"
+version = "0.6.9"
 description = "Agent and model icons, ACP session titles, active tab title and count, and a compact Pi chat transcript."
 window = "window.luau"
 styles = ["chat.css"]

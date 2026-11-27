@@ -265,9 +265,9 @@
 
 /* 38px agent welcome logos (manifest CSS supports inline SVG data URLs) */
 [data-role^="agent.welcome.logo-"] {
-	width: 38px !important;
-	height: 38px !important;
-	min-width: 38px !important;
+	width: 56px !important;
+	height: 56px !important;
+	min-width: 56px !important;
 	display: inline-block !important;
 	background-size: contain !important;
 	background-position: center !important;

@@ -127,9 +127,9 @@ for (const m of MODELS) {
 parts.push([
   '/* 38px agent welcome logos (manifest CSS supports inline SVG data URLs) */',
   '[data-role^="agent.welcome.logo-"] {',
-  '\twidth: 38px !important;',
-  '\theight: 38px !important;',
-  '\tmin-width: 38px !important;',
+  '\twidth: 56px !important;',
+  '\theight: 56px !important;',
+  '\tmin-width: 56px !important;',
   '\tdisplay: inline-block !important;',
   '\tbackground-size: contain !important;',
   '\tbackground-position: center !important;',

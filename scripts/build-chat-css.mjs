@@ -143,8 +143,8 @@ parts.push([
   '[data-theme="light"] [data-role="agent.welcome.logo-codex"] { background-image: ' + svgUrl('codex', LIGHT_MONO) + ' !important; }',
   '[data-role="agent.welcome.logo-claude"] { background-image: ' + svgUrl('claude', '#d97757') + ' !important; }',
   '/* Model picker Muse icon via tagged PickerItem ID */',
-  '.sf-picker .pk-row[data-node$="-muse"] > .pk-lead { background-image: ' + svgUrl('muse', '#2b95ff') + ' !important; background-size: 16px 16px !important; background-position: center !important; background-repeat: no-repeat !important; }',
-  '.sf-picker .pk-row[data-node$="-muse"] > .pk-lead > svg { opacity: 0 !important; }',
+  '.sf-picker .pk-row[data-tone="muse"] > .pk-lead { background-image: ' + svgUrl('muse', '#2b95ff') + ' !important; background-size: 16px 16px !important; background-position: center !important; background-repeat: no-repeat !important; }',
+  '.sf-picker .pk-row[data-tone="muse"] > .pk-lead > svg { opacity: 0 !important; }',
 ].join('\n'));
 const out = parts.join('\n\n') + '\n';
 writeFileSync(join(dir, 'chat.css'), out, 'utf8');

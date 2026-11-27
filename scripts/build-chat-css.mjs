@@ -19,12 +19,10 @@ const MODELS = [
   { icon: 'gpt', color: null, titles: ['GPT', 'gpt', 'OpenAI', 'openai', 'o1', 'o3', 'o4', 'Codex', 'codex'] },
   { icon: 'claude', color: '#d97757', titles: ['Claude', 'claude', 'haiku', 'sonnet', 'opus', 'fable'] },
   { icon: 'gemini', color: '#4285f4', titles: ['Gemini', 'gemini'] },
-  { icon: 'glm', color: null, titles: ['GLM', 'glm'] },
   { icon: 'deepseek', color: '#4d6bfe', titles: ['DeepSeek', 'deepseek'] },
   { icon: 'kimi', color: '#1783ff', titles: ['Kimi', 'kimi'] },
   { icon: 'qwen', color: '#7b76f5', titles: ['Qwen', 'qwen'] },
   { icon: 'grok', color: null, titles: ['Grok', 'grok'] },
-  { icon: 'muse', color: '#2b95ff', titles: ['Muse', 'muse'] },
 ];
 
 // Built-in Tern data-program keys for remote/mobile tab & header icons.
@@ -112,6 +110,9 @@ parts.push([
   '\tbackground-repeat: no-repeat !important;',
   '\tcolor: transparent !important;',
   '}',
+  '.sf-dock[data-surface="omp.session"] [data-role="omp.composer.model"]:is(',
+  '\t' + allTitleSels.join(',\n\t'),
+  ') > .sf-icon:first-child > svg { opacity: 0 !important; }',
 ].join('\n'));
 
 for (const m of MODELS) {
@@ -142,9 +143,7 @@ parts.push([
   '[data-role="agent.welcome.logo-codex"] { background-image: ' + svgUrl('codex', DARK_MONO) + ' !important; }',
   '[data-theme="light"] [data-role="agent.welcome.logo-codex"] { background-image: ' + svgUrl('codex', LIGHT_MONO) + ' !important; }',
   '[data-role="agent.welcome.logo-claude"] { background-image: ' + svgUrl('claude', '#d97757') + ' !important; }',
-  '/* Model picker Muse icon via tagged PickerItem ID */',
-  '.sf-picker .pk-row[data-tone="muse"] > .pk-lead { background-image: ' + svgUrl('muse', '#2b95ff') + ' !important; background-size: 16px 16px !important; background-position: center !important; background-repeat: no-repeat !important; }',
-  '.sf-picker .pk-row[data-tone="muse"] > .pk-lead > svg { opacity: 0 !important; }',
+  '[data-role="agent.welcome.logo-droid"] { background-image: ' + svgUrl('droid', '#ef6a37') + ' !important; }',
 ].join('\n'));
 const out = parts.join('\n\n') + '\n';
 writeFileSync(join(dir, 'chat.css'), out, 'utf8');

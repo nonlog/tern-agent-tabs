@@ -124,6 +124,28 @@ for (const m of MODELS) {
   }
 }
 
+parts.push([
+  '/* 38px agent welcome logos (manifest CSS supports inline SVG data URLs) */',
+  '[data-role^="agent.welcome.logo-"] {',
+  '\twidth: 38px !important;',
+  '\theight: 38px !important;',
+  '\tmin-width: 38px !important;',
+  '\tdisplay: inline-block !important;',
+  '\tbackground-size: contain !important;',
+  '\tbackground-position: center !important;',
+  '\tbackground-repeat: no-repeat !important;',
+  '\tcolor: transparent !important;',
+  '}',
+  '[data-role^="agent.welcome.logo-"] > svg { opacity: 0 !important; }',
+  '[data-role="agent.welcome.logo-pi"] { background-image: ' + svgUrl('pi', DARK_MONO) + ' !important; }',
+  '[data-theme="light"] [data-role="agent.welcome.logo-pi"] { background-image: ' + svgUrl('pi', LIGHT_MONO) + ' !important; }',
+  '[data-role="agent.welcome.logo-codex"] { background-image: ' + svgUrl('codex', DARK_MONO) + ' !important; }',
+  '[data-theme="light"] [data-role="agent.welcome.logo-codex"] { background-image: ' + svgUrl('codex', LIGHT_MONO) + ' !important; }',
+  '[data-role="agent.welcome.logo-claude"] { background-image: ' + svgUrl('claude', '#d97757') + ' !important; }',
+  '/* Model picker Muse icon via tagged PickerItem ID */',
+  '.sf-picker .pk-row[data-node$="-muse"] > .pk-lead { background-image: ' + svgUrl('muse', '#2b95ff') + ' !important; background-size: 16px 16px !important; background-position: center !important; background-repeat: no-repeat !important; }',
+  '.sf-picker .pk-row[data-node$="-muse"] > .pk-lead > svg { opacity: 0 !important; }',
+].join('\n'));
 const out = parts.join('\n\n') + '\n';
 writeFileSync(join(dir, 'chat.css'), out, 'utf8');
 console.log('Generated chat.css:', out.length, 'bytes');

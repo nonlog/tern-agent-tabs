@@ -643,6 +643,14 @@ local function refresh(cx: WindowCx)
 		tern.chrome.refresh()
 	end
 
+	-- Per-pane icons in Agents popover (.tn-face[data-pane="<id>"])
+	for pane_id, key in pairs(next_agent_of_pane) do
+		local url = icon_data_url(key)
+		if url then
+			table.insert(icon_rules, string.format('.tn-face[data-pane="%d"] { background-image: url("%s") !important; background-size: 16px 16px !important; background-repeat: no-repeat !important; background-position: center !important; }', pane_id, url))
+			table.insert(icon_rules, string.format('.tn-face[data-pane="%d"] > * { opacity: 0 !important; }', pane_id))
+		end
+	end
 	for _, r in ipairs(build_agents_widget_rules(ordered_agent_keys)) do
 		table.insert(icon_rules, r)
 	end

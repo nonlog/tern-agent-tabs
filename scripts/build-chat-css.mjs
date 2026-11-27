@@ -28,7 +28,6 @@ const MODELS = [
 // Built-in Tern data-program keys for remote/mobile tab & header icons.
 // 'agent' covers custom ACP agents (Pi by default; desktop window.luau still overrides per-tab).
 const PROGRAMS = [
-  { program: 'agent', icon: 'pi', color: null },
   { program: 'omp', icon: 'omp', color: null },
   { program: 'claude', icon: 'claude', color: '#d97757' },
   { program: 'codex', icon: 'codex', color: null },

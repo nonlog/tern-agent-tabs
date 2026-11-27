@@ -16,7 +16,6 @@
 
 /* Tab and mobile header agent icons (syncs to remote/mobile clients where window.luau does not run) */
 :is(.tn-dk-c, .tn-face):is(
-	[data-program="agent"],
 	[data-program="omp"],
 	[data-program="claude"],
 	[data-program="codex"],
@@ -34,7 +33,6 @@
 }
 
 .tn-dk-c:is(
-	[data-program="agent"],
 	[data-program="omp"],
 	[data-program="claude"],
 	[data-program="codex"],
@@ -50,7 +48,6 @@
 }
 
 :is(.tn-dk-c, .tn-face):is(
-	[data-program="agent"],
 	[data-program="omp"],
 	[data-program="claude"],
 	[data-program="codex"],
@@ -60,7 +57,6 @@
 	[data-program="cursor-agent"]
 ) > .tn-dk-g,
 :is(.tn-dk-c, .tn-face):is(
-	[data-program="agent"],
 	[data-program="omp"],
 	[data-program="claude"],
 	[data-program="codex"],
@@ -70,14 +66,6 @@
 	[data-program="cursor-agent"]
 ) > svg {
 	opacity: 0 !important;
-}
-
-:is(.tn-dk-c, .tn-face)[data-program="agent"] {
-	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgODAwIj4NCiAgPHN0eWxlPnBhdGgsY2lyY2xlLHJlY3QscG9seWdvbixwb2x5bGluZSxlbGxpcHNle2ZpbGw6I2U5ZTlmMDt9PC9zdHlsZT4NCiAgPHBhdGggZD0iICAgICBNMTY1LjI5IDE2NS4yOSAgICAgSDUxNy4zNiAgICAgVjQwMCAgICAgSDQwMCAgICAgVjUxNy4zNiAgICAgSDI4Mi42NSAgICAgVjYzNC43MiAgICAgSDE2NS4yOSAgICAgWiAgICAgTTI4Mi42NSAyODIuNjUgICAgIFY0MDAgICAgIEg0MDAgICAgIFYyODIuNjUgICAgIFogICAiLz4NCiAgPHBhdGggZD0iTTUxNy4zNiA0MDAgSDYzNC43MiBWNjM0LjcyIEg1MTcuMzYgWiIvPg0KPC9zdmc+DQo=") !important;
-}
-
-:root:not([data-theme="dark"]) :is(.tn-dk-c, .tn-face)[data-program="agent"] {
-	background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgODAwIj4NCiAgPHN0eWxlPnBhdGgsY2lyY2xlLHJlY3QscG9seWdvbixwb2x5bGluZSxlbGxpcHNle2ZpbGw6IzFmMjMyODt9PC9zdHlsZT4NCiAgPHBhdGggZD0iICAgICBNMTY1LjI5IDE2NS4yOSAgICAgSDUxNy4zNiAgICAgVjQwMCAgICAgSDQwMCAgICAgVjUxNy4zNiAgICAgSDI4Mi42NSAgICAgVjYzNC43MiAgICAgSDE2NS4yOSAgICAgWiAgICAgTTI4Mi42NSAyODIuNjUgICAgIFY0MDAgICAgIEg0MDAgICAgIFYyODIuNjUgICAgIFogICAiLz4NCiAgPHBhdGggZD0iTTUxNy4zNiA0MDAgSDYzNC43MiBWNjM0LjcyIEg1MTcuMzYgWiIvPg0KPC9zdmc+DQo=") !important;
 }
 
 :is(.tn-dk-c, .tn-face)[data-program="omp"] {

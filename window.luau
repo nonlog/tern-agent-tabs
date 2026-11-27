@@ -391,7 +391,7 @@ html.tabs-v #tabbar .tb-sp::after {
 	)
 end
 
-local hide_finished_steps = true
+local hide_finished_steps = false
 local installed_finished_steps = false
 local function set_finished_steps(hidden: boolean)
 	if hidden == installed_finished_steps then return end
@@ -449,7 +449,7 @@ local function build_agents_widget_rules(agent_keys: { string }): { string }
 	for i, key in ipairs(agent_keys) do
 		local url = icon_data_url(key)
 		if url then
-			local sel = string.format('.wg[data-widget="agents"] .wg-agents-tiles > .wg-agents-tile:nth-of-type(%d)', i)
+			local sel = string.format('.wg-agents-tiles > .wg-agents-tile:nth-of-type(%d)', i)
 			table.insert(rules, string.format('%s { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }', sel))
 			table.insert(rules, string.format('%s .wg-agents-art { background-image: url("%s") !important; background-size: 14px 14px !important; background-repeat: no-repeat !important; background-position: center !important; }', sel, url))
 			table.insert(rules, string.format('%s .wg-agents-art > svg { opacity: 0 !important; }', sel))
@@ -471,12 +471,11 @@ local function refresh(cx: WindowCx)
 			unseen_done[info.pane] = nil
 		end
 		local key = match_command(info.command)
+		local resolved_key = key or agent_of_pane[info.pane]
 		if key then
 			acp_agents[info.pane] = key
-			table.insert(ordered_agent_keys, key)
-		else
-			table.insert(ordered_agent_keys, "")
 		end
+		table.insert(ordered_agent_keys, resolved_key or "")
 		if info.pane == focused_pane and key == "pi" then
 			focused_pi_idle = info.state == "idle"
 		end

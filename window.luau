@@ -635,6 +635,67 @@ local function refresh(cx: WindowCx)
 		end
 	end
 
+	local next_snapshot: { TabSnapshot } = {}
+	local snap_sig_parts: { string } = {}
+	for _, tab in ipairs(tabs) do
+		if tab.session == current_session then
+			local ag = agent_of_tab[tab.id]
+			local spec = if ag then AGENTS[ag] else nil
+			local disp = if spec then spec.display elseif ag then ag else "Shell"
+			local title_str = next_title_of_tab[tab.id]
+			if not title_str or title_str == "" then
+				if tab.name and tab.name ~= "" then
+					title_str = tab.name
+				elseif tab.title and tab.title ~= "" then
+					title_str = tab.title
+				elseif tab.cwd and tab.cwd ~= "" then
+					title_str = basename(tab.cwd)
+				else
+					title_str = disp
+				end
+			end
+			local tab_st: string? = nil
+			local bp = 0
+			local function chk_st(pid: number?)
+				if not pid then return end
+				local st = agent_state_of_pane[pid]
+				local mapped: string? = nil
+				if st == "waiting_input" then mapped = "waiting"
+				elseif st == "working" then mapped = "working"
+				elseif unseen_done[pid] and tab.id ~= active_tab_id then mapped = "unread"
+				end
+				if mapped and (STATUS_PRIORITY[mapped] or 0) > bp then
+					bp = STATUS_PRIORITY[mapped] or 0
+					tab_st = mapped
+				end
+			end
+			chk_st(tab.pane)
+			for pane_id, p in pairs(pane_by_id) do
+				if p.tab == tab.id and pane_id ~= tab.pane then
+					chk_st(pane_id)
+				end
+			end
+			table.insert(next_snapshot, {
+				id = tab.id,
+				position = tab.position,
+				pane = tab.pane,
+				agent = ag,
+				display = disp,
+				title = title_str,
+				status = tab_st,
+				active = tab.id == active_tab_id,
+			})
+			table.insert(snap_sig_parts, string.format("%d:%d:%s:%s:%s:%s", tab.position, tab.pane, ag or "", tab_st or "", tostring(tab.id == active_tab_id), title_str))
+		end
+	end
+	table.sort(next_snapshot, function(a, b) return a.position < b.position end)
+	all_tabs_snapshot = next_snapshot
+	local snap_sig = table.concat(snap_sig_parts, "|")
+	if snap_sig ~= last_all_tabs_sig then
+		last_all_tabs_sig = snap_sig
+		tern.chrome.refresh()
+	end
+
 	title_of_tab = next_title_of_tab
 	table.sort(title_sig_parts)
 	local title_sig = table.concat(title_sig_parts, "|")
@@ -789,6 +850,46 @@ tern.command({
 	end,
 })
 
+type TabSnapshot = {
+	id: number,
+	position: number,
+	pane: number,
+	agent: string?,
+	display: string,
+	title: string,
+	status: string?,
+	active: boolean,
+}
+
+local all_tabs_snapshot: { TabSnapshot } = {}
+local last_all_tabs_sig = ""
+local current_selection_text = ""
+local current_selection_pane: number? = nil
+
+local function format_quote_markdown(text: string): string
+	local normalized = string.gsub(text, "\r\n", "\n")
+	normalized = string.gsub(normalized, "\r", "\n")
+	local lines = string.split(normalized, "\n")
+	local out: { string } = {}
+	for _, line in ipairs(lines) do
+		if line == "" then
+			table.insert(out, ">")
+		else
+			table.insert(out, "> " .. line)
+		end
+	end
+	return table.concat(out, "\n") .. "\n\n"
+end
+
+local function truncate_label(s: string, max_len: number): string
+	local clean = string.gsub(s, "[\r\n\t]+", " ")
+	clean = string.match(clean, "^%s*(.-)%s*$") or clean
+	if #clean <= max_len then
+		return clean
+	end
+	return string.sub(clean, 1, max_len - 1) .. "…"
+end
+
 local last_error: string? = nil
 
 local function safe_refresh(cx: WindowCx?)
@@ -842,10 +943,176 @@ tern.chrome.widget("pi-steps", {
 	end,
 })
 
+local function copy_active_selection(cx: WindowCx)
+	local sel = cx.session:selection()
+	local text = if sel and sel.text ~= "" then sel.text else current_selection_text
+	if text == "" then
+		cx:toast("info", "No text selected")
+		return
+	end
+	cx:copy(text)
+	cx:toast("info", "Copied selection")
+end
+
+local function quote_active_selection(cx: WindowCx)
+	local sel = cx.session:selection()
+	local text = if sel and sel.text ~= "" then sel.text else current_selection_text
+	local pane = if sel and sel.pane then sel.pane else (current_selection_pane or cx.session:focused())
+	if text == "" then
+		cx:toast("info", "No text selected")
+		return
+	end
+	if not pane then
+		cx:copy(format_quote_markdown(text))
+		cx:toast("info", "Quoted text copied to clipboard")
+		return
+	end
+	local quoted = format_quote_markdown(text)
+	cx:run(pane, "\27[200~" .. quoted .. "\27[201~")
+	cx:toast("info", "Quoted into composer")
+end
+
+tern.command({
+	id = "copy-selection",
+	title = "Selection: Copy",
+	icon = "copy",
+	run = copy_active_selection,
+})
+
+tern.command({
+	id = "quote-selection",
+	title = "Selection: Quote into Composer",
+	icon = "message",
+	run = quote_active_selection,
+})
+
+tern.bind("ctrl+shift+q", "plugin.agent-tabs.quote-selection")
+
+tern.chrome.widget("selection-tools", {
+	name = "Selection Tools",
+	description = "Copy or Quote selected text (replaces copy-on-select)",
+	icon = "copy",
+	render = function(_pane: StatusPaneInfo?)
+		if current_selection_text == "" then
+			return nil
+		end
+		local preview = truncate_label(current_selection_text, 64)
+		return {
+			text = "Copy / Quote",
+			tone = "accent",
+			title = "Click to copy, or hover for Copy / Quote",
+			command = "plugin.agent-tabs.copy-selection",
+			card = {
+				{
+					id = "sel",
+					label = "Selected",
+					text = preview,
+					actions = {
+						{ id = "copy", label = "Copy" },
+						{ id = "quote", label = "Quote" },
+						{ id = "copy-quote", label = "Copy >" },
+					},
+				},
+			},
+		}
+	end,
+})
+
+tern.chrome.widget("all-agents", {
+	name = "All Tabs & Agents",
+	description = "Shows all tabs and detected coding agents with quick switch",
+	icon = "layers",
+	render = function(_pane: StatusPaneInfo?)
+		local total = #all_tabs_snapshot
+		if total == 0 then
+			return nil
+		end
+		local counts: { [string]: number } = {}
+		local order: { string } = {}
+		local any_waiting = false
+		local any_working = false
+		local rows: { WidgetCardRow } = {}
+		for _, item in ipairs(all_tabs_snapshot) do
+			if not counts[item.display] then
+				counts[item.display] = 0
+				table.insert(order, item.display)
+			end
+			counts[item.display] += 1
+			if item.status == "waiting" then any_waiting = true end
+			if item.status == "working" then any_working = true end
+			local badge = ""
+			local row_tone: string? = if item.active then "accent" else "muted"
+			if item.status == "waiting" then
+				badge = " !"
+				row_tone = "warn"
+			elseif item.status == "working" then
+				badge = " *"
+				row_tone = "accent"
+			elseif item.status == "unread" then
+				badge = " +"
+				row_tone = "ok"
+			end
+			if #rows < 32 then
+				table.insert(rows, {
+					id = "pane-" .. tostring(item.pane),
+					label = string.format("%d %s%s", item.position, item.display, badge),
+					text = truncate_label(item.title, 48),
+					tone = row_tone,
+					actions = if item.active then nil else {
+						{ id = "focus", label = "Switch" },
+					},
+				})
+			end
+		end
+		local summary_parts: { string } = {}
+		for _, name in ipairs(order) do
+			table.insert(summary_parts, string.format("%d %s", counts[name], name))
+		end
+		local bar_text = string.format("%d · %s", total, table.concat(summary_parts, " · "))
+		local bar_tone: string? = nil
+		if any_waiting then
+			bar_tone = "warn"
+		elseif any_working then
+			bar_tone = "accent"
+		end
+		return {
+			text = bar_text,
+			tone = bar_tone,
+			title = "All tabs & agents",
+			card = rows,
+		}
+	end,
+})
+
 tern.on("widget_action", function(ev: WidgetActionEvent, cx: WindowCx)
 	if ev.widget == "pi-steps" and ev.act == "toggle" then
 		toggle_finished_steps(cx)
 		return true
+	end
+	if ev.widget == "all-agents" and ev.act == "focus" then
+		local pid_str = string.match(ev.row, "^pane%-(%d+)$")
+		local pid = if pid_str then tonumber(pid_str) else nil
+		if pid then
+			cx.layout:focus(pid)
+			return true
+		end
+	end
+	if ev.widget == "selection-tools" then
+		if ev.act == "copy" then
+			copy_active_selection(cx)
+			return true
+		elseif ev.act == "quote" then
+			quote_active_selection(cx)
+			return true
+		elseif ev.act == "copy-quote" then
+			local sel = cx.session:selection()
+			local text = if sel and sel.text ~= "" then sel.text else current_selection_text
+			if text ~= "" then
+				cx:copy(format_quote_markdown(text))
+				cx:toast("info", "Copied as blockquote")
+			end
+			return true
+		end
 	end
 	return false
 end)
@@ -894,3 +1161,19 @@ local function poll(cx: WindowCx?)
 end
 
 tern.timer(0, poll)
+
+local function poll_selection(cx: WindowCx?)
+	if cx then
+		local ok, sel = pcall(function() return cx.session:selection(nil, { max_chars = 4000 }) end)
+		local txt = if ok and sel and type(sel.text) == "string" then sel.text else ""
+		local pane = if ok and sel and type(sel.pane) == "number" then sel.pane else nil
+		if txt ~= current_selection_text or pane ~= current_selection_pane then
+			current_selection_text = txt
+			current_selection_pane = pane
+			tern.chrome.refresh()
+		end
+	end
+	tern.timer(300, poll_selection)
+end
+
+tern.timer(300, poll_selection)

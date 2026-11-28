@@ -49,6 +49,8 @@ parts.push([
   '\tpadding: 0 10px !important;',
   '}',
   '',
+  '.sf-dock.sf-folded [data-role="agent.composer.effort"] { display: none !important; }',
+  '',
   '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-body,',
   '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-more,',
   '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-head .sf-tool-target {',

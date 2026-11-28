@@ -53,7 +53,7 @@ parts.push([
   '',
   '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-body,',
   '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-more,',
-  '.sf-main[data-surface="omp.session"] .sf-tool.collapsed > .sf-tool-head .sf-tool-target {',
+  '.sf-main[data-surface="omp.session"] .sf-tool:not([data-role="agent.step-group"]).collapsed > .sf-tool-head .sf-tool-target {',
   '\tdisplay: none !important;',
   '}',
   '',

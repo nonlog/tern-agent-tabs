@@ -56,6 +56,12 @@ parts.push([
   '.sf-main[data-surface="omp.session"] .sf-tool:not([data-role="agent.step-group"]).collapsed > .sf-tool-head .sf-tool-target {',
   '\tdisplay: none !important;',
   '}',
+  '.sf-main[data-surface="omp.session"] .sf-tool[data-role="agent.step-group"] .sf-tool.collapsed > .sf-tool-head .sf-tool-target {',
+  '\tdisplay: inline !important;',
+  '\toverflow: hidden;',
+  '\ttext-overflow: ellipsis;',
+  '\twhite-space: nowrap;',
+  '}',
   '',
 ].join('\n'));
 

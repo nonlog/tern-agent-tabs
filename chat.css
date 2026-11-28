@@ -14,6 +14,12 @@
 .sf-main[data-surface="omp.session"] .sf-tool:not([data-role="agent.step-group"]).collapsed > .sf-tool-head .sf-tool-target {
 	display: none !important;
 }
+.sf-main[data-surface="omp.session"] .sf-tool[data-role="agent.step-group"] .sf-tool.collapsed > .sf-tool-head .sf-tool-target {
+	display: inline !important;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 
 
 /* Tab and mobile header agent icons (syncs to remote/mobile clients where window.luau does not run) */
